@@ -31,9 +31,15 @@ class Field
   def each_tile &block
     @tiles.each &block
   end
+
+  def contains?(new_tile_position)
+    (0..(height-1)).include?(new_tile_position.x) &&
+    (0..(width-1)).include?(new_tile_position.y)
+  end
 end
 
 class VirtualField
+  VirtualTile = Struct.new(:x, :y)
   def initialize(field)
     @tiles = Array.new(field.height) {Array.new(field.width){0}}
   end
@@ -42,8 +48,10 @@ class VirtualField
   end
   def add_points_to_tiles_that_water_the_plant(relative_tiles_to_water, tile)
     relative_tiles_to_water.each do |relative_tile|
-      if tile_to_water_is_on_field(relative_tile, tile.x, tile.y, tile.field)
-        @tiles[relative_tile[0]+tile.x][relative_tile[1]+tile.y] += 1
+      new_tile_position = VirtualTile.new(relative_tile[0]+tile.x, relative_tile[1]+tile.y)
+      
+      if tile.field.contains?(new_tile_position)
+        @tiles[new_tile_position.x][new_tile_position.y] += 1
       end
     end
   end
@@ -64,13 +72,6 @@ def relative_tiles_to_water(radius)
     columns.each {|column| relative_tiles << [row, column]}
   end
   relative_tiles
-end
-
-def tile_to_water_is_on_field(tile, x, y, field)
-  tile[0]+x >=0 &&
-  tile[1]+y >=0 &&
-  tile[0]+x < field.height &&
-  tile[1]+y < field.width
 end
 
 relative_tiles = relative_tiles_to_water(radius)
