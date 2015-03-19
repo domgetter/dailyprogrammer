@@ -46,7 +46,7 @@ class VirtualField
   def max_tile
     @tiles.map {|row| row.each_with_index.max}.each_with_index.max_by {|m| m[0]}.flatten
   end
-  def add_points_to_tiles_that_water_the_plant(relative_tiles_to_water, tile)
+  def increase_virtual_tiles(relative_tiles_to_water, tile)
     relative_tiles_to_water.each do |relative_tile|
       new_tile_position = VirtualTile.new(relative_tile[0]+tile.x, relative_tile[1]+tile.y)
       
@@ -78,9 +78,7 @@ relative_tiles = relative_tiles_to_water(radius)
 field = Field.new(input)
 watering_map = VirtualField.new(field)
 field.each_tile do |tile|
-  if tile.has_plant?
-    watering_map.add_points_to_tiles_that_water_the_plant(relative_tiles, tile)
-  end
+  watering_map.increase_virtual_tiles(relative_tiles, tile) if tile.has_plant?
 end
 
 max, column, row = watering_map.max_tile
