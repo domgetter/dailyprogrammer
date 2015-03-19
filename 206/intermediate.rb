@@ -1,5 +1,6 @@
 radius = 9
 input = File.open("field.txt", "r").lines.to_a.join
+require 'set'
 
 class Tile
   attr_reader :x, :y, :field
@@ -38,17 +39,18 @@ class Field
   end
 end
 
-class VirtualField
-  VirtualTile = Struct.new(:x, :y)
+VirtualTile = Struct.new(:x, :y)
+
+class HeatMap
   def initialize(field)
     @tiles = Array.new(field.height) {Array.new(field.width){0}}
   end
   def max_tile
     @tiles.map {|row| row.each_with_index.max}.each_with_index.max_by {|m| m[0]}.flatten
   end
-  def increase_virtual_tiles(relative_tiles_to_water, tile)
+  def increment_tile(relative_tiles_to_water, tile)
     relative_tiles_to_water.each do |relative_tile|
-      new_tile_position = VirtualTile.new(relative_tile[0]+tile.x, relative_tile[1]+tile.y)
+      new_tile_position = VirtualTile.new(relative_tile.x+tile.x, relative_tile.y+tile.y)
       
       if tile.field.contains?(new_tile_position)
         @tiles[new_tile_position.x][new_tile_position.y] += 1
@@ -58,27 +60,23 @@ class VirtualField
 end
 
 def relative_tiles_to_water(radius)
-  indices = [*0..radius].map do |i|
-    [*-Math.sqrt(radius**2-i**2).floor..Math.sqrt(radius**2-i**2).floor]
+  border_points = [*0..radius].map do |i|
+    Math.sqrt(radius**2-i**2).floor
   end
-  indices[0].delete_at radius
-  watering_rows = {}
-  indices.each_with_index do |row, index|
-   watering_rows[index] = row
-   watering_rows[-index] = row
+  relative_tiles = Set.new
+  border_points.each_with_index do |edge, index|
+    [*-edge..edge].each do |p|
+      relative_tiles << VirtualTile.new(index,p) << VirtualTile.new(-index,p)
+    end
   end
-  relative_tiles = []
-  watering_rows.each do |row, columns|
-    columns.each {|column| relative_tiles << [row, column]}
-  end
-  relative_tiles
+  relative_tiles.delete VirtualTile.new(0, 0)
 end
 
 relative_tiles = relative_tiles_to_water(radius)
 field = Field.new(input)
-watering_map = VirtualField.new(field)
+watering_map = HeatMap.new(field)
 field.each_tile do |tile|
-  watering_map.increase_virtual_tiles(relative_tiles, tile) if tile.has_plant?
+  watering_map.increment_tile(relative_tiles, tile) if tile.has_plant?
 end
 
 max, column, row = watering_map.max_tile
