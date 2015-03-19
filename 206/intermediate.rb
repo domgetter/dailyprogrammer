@@ -1,22 +1,51 @@
 radius = 9
 input = File.open("field.txt", "r").lines.to_a.join
 
-class Plot
-  def initialize(field, x, y)
-  
+class Tile
+  attr_reader :x, :y, :field
+  def initialize(field, x, y, contents)
+    @field = field
+    @x = x
+    @y = y
+    @contents = contents
+  end
+
+  def has_plant?
+    @contents.eql? "x"
   end
 end
 
 class Field
-  attr_reader :plots
+  attr_reader :tiles, :width, :height
   def initialize(str)
-    @plots = str.split.map {|s| s.split ""}
+    tiles = str.split.map {|s| s.split ""}
+    @tiles = []
+    @width = tiles[0].length
+    @height = tiles.length
+    tiles.each_with_index do |row, x|
+      row.each_with_index do |tile_contents, y|
+        @tiles << Tile.new(self, x, y, tile_contents)
+      end
+    end
   end
-  def length
-    @plots.length
+  def each_tile &block
+    @tiles.each &block
   end
-  def [](*args)
-    @plots[*args]
+end
+
+class VirtualField
+  def initialize(field)
+    @tiles = Array.new(field.height) {Array.new(field.width){0}}
+  end
+  def max_tile
+    @tiles.map {|row| row.each_with_index.max}.each_with_index.max_by {|m| m[0]}.flatten
+  end
+  def add_points_to_tiles_that_water_the_plant(relative_tiles_to_water, tile)
+    relative_tiles_to_water.each do |relative_tile|
+      if tile_to_water_is_on_field(relative_tile, tile.x, tile.y, tile.field)
+        @tiles[relative_tile[0]+tile.x][relative_tile[1]+tile.y] += 1
+      end
+    end
   end
 end
 
@@ -37,43 +66,21 @@ def relative_tiles_to_water(radius)
   relative_tiles
 end
 
-def tile_has_plant?(cell)
-  cell.eql? "x"
-end
-
 def tile_to_water_is_on_field(tile, x, y, field)
   tile[0]+x >=0 &&
   tile[1]+y >=0 &&
-  tile[0]+x < field.length &&
-  tile[1]+y < field[0].length
-end
-
-def add_points_to_tiles_that_water_the_plant(map, relative_tiles_to_water, x, y, field)
-  relative_tiles_to_water.each do |tile|
-    if tile_to_water_is_on_field(tile, x, y, field)
-      map[tile[0]+x][tile[1]+y] += 1
-    end
-  end
-end
-
-def max_of(watering_map)
-  watering_map.map {|row| row.each_with_index.max}.each_with_index.max_by {|m| m[0]}.flatten
-end
-
-def field_of_zeros(field)
-  Array.new(field.length) {Array.new(field[0].length){0}}
+  tile[0]+x < field.height &&
+  tile[1]+y < field.width
 end
 
 relative_tiles = relative_tiles_to_water(radius)
 field = Field.new(input)
-watering_map = field_of_zeros(field)
-field.plots.each_with_index do |row, x|
-  row.each_with_index do |cell, y|
-    if tile_has_plant?(cell)
-      add_points_to_tiles_that_water_the_plant(watering_map, relative_tiles, x, y, field)
-    end
+watering_map = VirtualField.new(field)
+field.each_tile do |tile|
+  if tile.has_plant?
+    watering_map.add_points_to_tiles_that_water_the_plant(relative_tiles, tile)
   end
 end
 
-max, column, row = max_of(watering_map)
+max, column, row = watering_map.max_tile
 puts "Most watered: #{max} plants at [#{row}, #{column}]"
